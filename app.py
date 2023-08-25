@@ -1,16 +1,17 @@
 import uuid
 
 import pika
+import redis
 from flask import Flask, jsonify, request
 
 conn_param = pika.ConnectionParameters("localhost")
 connection = pika.BlockingConnection(conn_param)
 channel = connection.channel()
-
-lookup_table = {}
-
 channel.queue_declare("computation-request-queue")
 # channel.queue_declare("computation-response-queue")
+
+
+lookup = redis.Redis(host="localhost", port=6379, decode_responses=True)
 
 app = Flask(__name__)
 
@@ -34,23 +35,13 @@ def calculate(num):
 
 @app.route("/result/<uuid>", methods=["GET"])
 def result(uuid):
-    res = lookup_table.get(uuid)
+    res = lookup.get(uuid)
     if res is None:
         return (
             jsonify({"message": "Processing."}),
             202,
         )
     return jsonify({"result": res}), 200
-
-
-@app.route("/write-result", methods=["POST"])
-def write_result():
-    body = request.json
-
-    id = body.get("id")
-    result = body.get("result")
-    lookup_table[id] = result
-    return {"message": "received"}
 
 
 if __name__ == "__main__":

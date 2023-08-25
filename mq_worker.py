@@ -1,6 +1,7 @@
 import json
 
 import pika
+import redis
 import requests
 
 import computation
@@ -15,19 +16,15 @@ def computation_callback(ch, method, properties, body):
 
     print(f"The {int(body)}-th fibonacci number is: {fib}")
 
-    payload = {"id": id, "result": fib}
-    headers = {"Content-Type": "application/json"}
-    resp = requests.post(
-        url="http://localhost:5000/write-result",
-        data=json.dumps(payload),
-        headers=headers,
-    )
+    cache.set(id, fib)
 
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
 if __name__ == "__main__":
     conn_param = pika.ConnectionParameters("localhost")
+    cache = redis.Redis(host="localhost", port=6379, decode_responses=True)
+
     with pika.BlockingConnection(conn_param) as connection:
         channel = connection.channel()
 
